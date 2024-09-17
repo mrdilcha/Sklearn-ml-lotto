@@ -1,77 +1,61 @@
-import streamlit as st
-import pandas as pd
 import numpy as np
-from collections import deque
+import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
+import streamlit as st
 
-# Function definitions (keeping only the necessary ones)
-def historical_pattern_recognition(history, period):
-    pattern_length = 3  # Look for repeating patterns of length 3
-    if len(history) < pattern_length:
-        return np.random.choice([0, 1])  # No sufficient history, random prediction
-    pattern = history[-pattern_length:]  # Extract the last pattern
-    for i in range(len(history) - pattern_length):
-        if np.array_equal(history[i:i+pattern_length], pattern):
-            return history[i+pattern_length]  # If a pattern is found, predict the next outcome
-    return np.random.choice([0, 1])  # If no pattern is found, random prediction
-
-def trend_following(history):
-    if len(history) < 3:
-        return np.random.choice([0, 1])
-    return history[-1]  # Follow the most recent trend
-
-def predict_outcome(period_number, history):
-    pattern_prediction = historical_pattern_recognition(history, period_number)
-    trend_prediction = trend_following(history)
-    # Combine predictions (you can adjust the weighting if needed)
-    return 1 if (pattern_prediction + trend_prediction) > 1 else 0
-
-# Add a title to your app
-st.title("Period Number Prediction Application")
-
-# Load dataset
-uploaded_file = st.file_uploader("Upload a CSV file with historical data", type="csv")
-
-if uploaded_file is not None:
-    data = pd.read_csv(uploaded_file)
+# Generate synthetic historical data for training
+def generate_data(num_samples=1000):
+    np.random.seed(42)
+    data = []
     
-    st.write("Here are the first few rows of your historical data:")
-    st.write(data.head())
+    for _ in range(num_samples):
+        last_three_digits = np.random.randint(100, 1000)
+        digit_sum = sum(int(digit) for digit in str(last_three_digits))
+        outcome = "big" if np.random.rand() > 0.5 else "small"
+        data.append([last_three_digits, digit_sum, outcome])
     
-    # Feature and label extraction
-    X = data['period_number'].values
-    y = data['outcome'].values  # 0: Small, 1: Big
+    return pd.DataFrame(data, columns=["last_three_digits", "digit_sum", "outcome"])
+
+# Prepare the dataset
+df = generate_data()
+df['outcome'] = df['outcome'].map({"big": 1, "small": 0})
+
+X = df[['last_three_digits', 'digit_sum']]
+y = df['outcome']
+
+# Train the logistic regression model
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+model = LogisticRegression()
+model.fit(X_scaled, y)
+
+def predict_outcome(last_three_digits):
+    digit_sum = sum(int(digit) for digit in str(last_three_digits))
+    features = np.array([[last_three_digits, digit_sum]])
+    scaled_features = scaler.transform(features)
     
-    # User input for prediction
-    st.write("Enter the last three digits of the period number you want to predict:")
-    user_input = st.text_input("Last three digits of period number:", max_chars=3)
-    
-    if st.button("Predict") and user_input:
-        try:
-            input_number = int(user_input)
-            if 0 <= input_number <= 999:
-                # Prepare history for prediction
-                history = deque(y[-10:], maxlen=10)  # Use last 10 outcomes as history
-                
-                # Make prediction
-                prediction = predict_outcome(input_number, list(history))
-                
-                # Display prediction
-                st.write(f"Prediction for period number ending with {user_input}:")
-                if prediction == 1:
-                    st.write("The predicted outcome is: **Big**")
-                else:
-                    st.write("The predicted outcome is: **Small**")
-                
-                # Display some additional information
-                st.write("\nRecent historical data:")
-                recent_data = data.tail(10)
-                st.write(recent_data)
-                
-                st.write("\nNote: This prediction is based on historical patterns and recent trends. "
-                         "It should not be considered as financial advice or a guarantee of future outcomes.")
-            else:
-                st.write("Please enter a number between 000 and 999.")
-        except ValueError:
-            st.write("Please enter a valid three-digit number.")
-else:
-    st.write("Please upload a CSV file with historical data to continue.")
+    prediction = model.predict(scaled_features)
+    return "big" if prediction[0] == 1 else "small"
+
+# Streamlit app layout
+st.title("Big or Small Prediction Game")
+st.write("Enter the last three digits of the period number to predict the outcome.")
+
+last_three_digits = st.text_input("Last three digits:")
+
+if st.button("Predict"):
+    if len(last_three_digits) == 3 and last_three_digits.isdigit():
+        prediction = predict_outcome(int(last_three_digits))
+        actual_outcome = np.random.choice(["big", "small"])
+        
+        st.write(f"Your prediction: **{prediction}**")
+        st.write(f"Actual outcome: **{actual_outcome}**")
+        
+        if prediction == actual_outcome:
+            st.success("Congratulations! You predicted correctly.")
+        else:
+            st.error("Sorry, better luck next time.")
+    else:
+        st.warning("Please enter exactly three digits.")
+        
