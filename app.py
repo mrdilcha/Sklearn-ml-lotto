@@ -41,45 +41,40 @@ X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 
 # Initialize classifiers
-models = {
-    "Random Forest": RandomForestClassifier(n_estimators=100, random_state=42),
-    "Support Vector Machine": SVC(probability=True),
-    "Neural Network": MLPClassifier(hidden_layer_sizes=(10,), max_iter=1000, random_state=42)
-}
+rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
+svm_model = SVC(probability=True)
+nn_model = MLPClassifier(hidden_layer_sizes=(10,), max_iter=1000, random_state=42)
 
 # Train models and evaluate accuracy
-accuracies = {}
-for name, model in models.items():
-    model.fit(X_train_scaled, y_train)
-    predictions = model.predict(X_test_scaled)
-    accuracies[name] = accuracy_score(y_test, predictions)
-
-# Display accuracies in Streamlit app
-st.title("Outcome Prediction using Multiple Algorithms")
-st.write("Accuracy of different models on test data:")
-for model_name, accuracy in accuracies.items():
-    st.write(f"{model_name}: {accuracy:.2f}")
+rf_model.fit(X_train_scaled, y_train)
+svm_model.fit(X_train_scaled, y_train)
+nn_model.fit(X_train_scaled, y_train)
 
 # Function to make predictions based on user input
-def predict_outcome(model_name, last_three_digits):
+def predict_outcome(last_three_digits):
     digit_sum = sum(int(digit) for digit in str(last_three_digits))
     features = np.array([[last_three_digits, digit_sum]])
     scaled_features = scaler.transform(features)
     
-    model = models[model_name]
-    prediction = model.predict(scaled_features)[0]
+    rf_prediction = rf_model.predict(scaled_features)[0]
+    svm_prediction = svm_model.predict(scaled_features)[0]
+    nn_prediction = nn_model.predict(scaled_features)[0]
     
-    return "big" if prediction == 1 else "small"
+    # Check if any two models agree on the prediction
+    if (rf_prediction == svm_prediction) or (rf_prediction == nn_prediction) or (svm_prediction == nn_prediction):
+        return "big" if rf_prediction == svm_prediction == nn_prediction == 1 else "small"
+    else:
+        return "Inconclusive"
 
-# Streamlit app layout for user prediction input
+# Streamlit app layout
+st.title("Outcome Prediction using Multiple Algorithms")
 st.write("Enter the last three digits of the period number to predict the outcome.")
-last_three_digits_input = st.text_input("Last three digits:", "")
 
-selected_model = st.selectbox("Select Model:", list(models.keys()))
+last_three_digits_input = st.text_input("Last three digits:", "")
 
 if st.button("Predict"):
     if len(last_three_digits_input) == 3 and last_three_digits_input.isdigit():
-        prediction = predict_outcome(selected_model, int(last_three_digits_input))
-        st.write(f"Your prediction using {selected_model}: **{prediction}**")
+        prediction = predict_outcome(int(last_three_digits_input))
+        st.write(f"Prediction: **{prediction}**")
     else:
         st.warning("Please enter exactly three digits.")
