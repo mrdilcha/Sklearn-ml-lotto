@@ -2,10 +2,13 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
+from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score
 import streamlit as st
 
-# Generate balanced synthetic historical data for training
+# Function to generate balanced synthetic historical data for training
 def generate_balanced_data(num_samples=1000):
     np.random.seed(42)
     data = []
@@ -29,34 +32,54 @@ df['outcome'] = df['outcome'].map({"big": 1, "small": 0})
 X = df[['last_three_digits', 'digit_sum']]
 y = df['outcome']
 
-# Train the Random Forest classifier
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
-model = RandomForestClassifier(n_estimators=100, random_state=42)
-model.fit(X_scaled, y)
+# Split the dataset into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-def predict_outcome(last_three_digits):
+# Standardize features
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# Initialize classifiers
+models = {
+    "Random Forest": RandomForestClassifier(n_estimators=100, random_state=42),
+    "Support Vector Machine": SVC(probability=True),
+    "Neural Network": MLPClassifier(hidden_layer_sizes=(10,), max_iter=1000, random_state=42)
+}
+
+# Train models and evaluate accuracy
+accuracies = {}
+for name, model in models.items():
+    model.fit(X_train_scaled, y_train)
+    predictions = model.predict(X_test_scaled)
+    accuracies[name] = accuracy_score(y_test, predictions)
+
+# Display accuracies in Streamlit app
+st.title("Outcome Prediction using Multiple Algorithms")
+st.write("Accuracy of different models on test data:")
+for model_name, accuracy in accuracies.items():
+    st.write(f"{model_name}: {accuracy:.2f}")
+
+# Function to make predictions based on user input
+def predict_outcome(model_name, last_three_digits):
     digit_sum = sum(int(digit) for digit in str(last_three_digits))
     features = np.array([[last_three_digits, digit_sum]])
     scaled_features = scaler.transform(features)
     
-    prediction = model.predict(scaled_features)
+    model = models[model_name]
+    prediction = model.predict(scaled_features)[0]
     
-    # Introduce randomness to predictions
-    if np.random.rand() < 0.1:  # 10% chance to flip prediction
-        return "small" if prediction[0] == 1 else "big"
-    
-    return "big" if prediction[0] == 1 else "small"
+    return "big" if prediction == 1 else "small"
 
-# Streamlit app layout
-st.title("Big or Small Prediction Game")
+# Streamlit app layout for user prediction input
 st.write("Enter the last three digits of the period number to predict the outcome.")
+last_three_digits_input = st.text_input("Last three digits:", "")
 
-last_three_digits = st.text_input("Last three digits:")
+selected_model = st.selectbox("Select Model:", list(models.keys()))
 
 if st.button("Predict"):
-    if len(last_three_digits) == 3 and last_three_digits.isdigit():
-        prediction = predict_outcome(int(last_three_digits))
-        st.write(f"Your prediction: **{prediction}**")
+    if len(last_three_digits_input) == 3 and last_three_digits_input.isdigit():
+        prediction = predict_outcome(selected_model, int(last_three_digits_input))
+        st.write(f"Your prediction using {selected_model}: **{prediction}**")
     else:
         st.warning("Please enter exactly three digits.")
