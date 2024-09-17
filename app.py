@@ -41,6 +41,11 @@ def predict_outcome(last_three_digits):
     scaled_features = scaler.transform(features)
     
     prediction = model.predict(scaled_features)
+    
+    # Introduce randomness to predictions
+    if np.random.rand() < 0.1:  # 10% chance to flip prediction
+        return "small" if prediction[0] == 1 else "big"
+    
     return "big" if prediction[0] == 1 else "small"
 
 # Streamlit app layout
