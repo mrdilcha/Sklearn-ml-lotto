@@ -1,35 +1,26 @@
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.svm import SVC
-from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import accuracy_score
+from keras.models import Sequential
+from keras.layers import Dense
 import streamlit as st
 
-# Function to generate balanced synthetic historical data for training
-def generate_balanced_data(num_samples=1000):
+# Function to generate synthetic data
+def generate_data(num_samples=10000):
     np.random.seed(42)
     data = []
     
-    # Create an equal number of big and small outcomes
-    for _ in range(num_samples // 2):
+    for _ in range(num_samples):
         last_three_digits = np.random.randint(100, 1000)
-        digit_sum = sum(int(digit) for digit in str(last_three_digits))
-        data.append([last_three_digits, digit_sum, "big"])
-        
-        last_three_digits = np.random.randint(100, 1000)
-        digit_sum = sum(int(digit) for digit in str(last_three_digits))
-        data.append([last_three_digits, digit_sum, "small"])
+        outcome = 1 if np.random.rand() > 0.5 else 0  # Randomly assign big (1) or small (0)
+        data.append([last_three_digits, outcome])
     
-    return pd.DataFrame(data, columns=["last_three_digits", "digit_sum", "outcome"])
+    return pd.DataFrame(data, columns=["last_three_digits", "outcome"])
 
 # Prepare the dataset
-df = generate_balanced_data()
-df['outcome'] = df['outcome'].map({"big": 1, "small": 0})
-
-X = df[['last_three_digits', 'digit_sum']]
+df = generate_data(10000)
+X = df[['last_three_digits']]
 y = df['outcome']
 
 # Split the dataset into training and testing sets
@@ -40,41 +31,34 @@ scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 
-# Initialize classifiers
-rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
-svm_model = SVC(probability=True)
-nn_model = MLPClassifier(hidden_layer_sizes=(10,), max_iter=1000, random_state=42)
+# Build the neural network model
+model = Sequential()
+model.add(Dense(10, activation='relu', input_shape=(1,)))  # Input layer
+model.add(Dense(10, activation='relu'))                     # Hidden layer
+model.add(Dense(1, activation='sigmoid'))                   # Output layer
 
-# Train models and evaluate accuracy
-rf_model.fit(X_train_scaled, y_train)
-svm_model.fit(X_train_scaled, y_train)
-nn_model.fit(X_train_scaled, y_train)
+# Compile the model
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
-# Function to make predictions based on user input
+# Train the model
+model.fit(X_train_scaled, y_train, epochs=50, batch_size=32)
+
+# Function to predict outcome based on user input
 def predict_outcome(last_three_digits):
-    digit_sum = sum(int(digit) for digit in str(last_three_digits))
-    features = np.array([[last_three_digits, digit_sum]])
-    scaled_features = scaler.transform(features)
-    
-    rf_prediction = rf_model.predict(scaled_features)[0]
-    svm_prediction = svm_model.predict(scaled_features)[0]
-    nn_prediction = nn_model.predict(scaled_features)[0]
-    
-    # Check if any two models agree on the prediction
-    if (rf_prediction == svm_prediction) or (rf_prediction == nn_prediction) or (svm_prediction == nn_prediction):
-        return "big" if rf_prediction == svm_prediction == nn_prediction == 1 else "small"
-    else:
-        return "Inconclusive"
+    scaled_input = scaler.transform(np.array([[last_three_digits]]))  # Scale input
+    prediction = model.predict(scaled_input)
+    return "big" if prediction[0][0] > 0.5 else "small"
 
 # Streamlit app layout
-st.title("Outcome Prediction using Multiple Algorithms")
+st.title("Big or Small Prediction App")
 st.write("Enter the last three digits of the period number to predict the outcome.")
 
+# Input field for user to enter last three digits
 last_three_digits_input = st.text_input("Last three digits:", "")
 
 if st.button("Predict"):
-    if len(last_three_digits_input) == 3 and last_three_digits_input.isdigit():
-        prediction = predict_outcome(int(last_three_digits_input))
-        st.write(f"Prediction: **{prediction}**")
+    if last_three_digits_input.isdigit() and len(last_three_digits_input) == 3:
+        prediction_result = predict_outcome(int(last_three_digits_input))
+        st.write(f"Prediction: **{prediction_result}**")
     else:
         st.warning("Please enter exactly three digits.")
