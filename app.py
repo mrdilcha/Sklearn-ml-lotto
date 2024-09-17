@@ -1,6 +1,21 @@
+import streamlit as st 
 import numpy as np
 import pandas as pd
 from collections import deque
+
+
+# Add a title to your app
+st.title("Prediction Application")
+
+# Load dataset
+uploaded_file = st.file_uploader("Upload a CSV file", type="csv")
+
+if uploaded_file is not None:
+    data = pd.read_csv(uploaded_file)
+    
+    st.write("Here is the first few rows of your data:")
+    st.write(data.head())
+
 
 # Load the historical data (Assuming it's already available in 'data.csv')
 data = pd.read_csv('data.csv')
