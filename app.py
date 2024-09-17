@@ -16,6 +16,10 @@ if uploaded_file is not None:
     st.write("Here is the first few rows of your data:")
     st.write(data.head())
 
+# Add a button to run the prediction
+    if st.button("Run Prediction"):
+        st.write("Running Prediction...")
+
 
 # Load the historical data (Assuming it's already available in 'data.csv')
 data = pd.read_csv('data.csv')
