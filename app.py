@@ -1,33 +1,38 @@
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 import streamlit as st
 
-# Generate synthetic historical data for training
-def generate_data(num_samples=1000):
+# Generate balanced synthetic historical data for training
+def generate_balanced_data(num_samples=1000):
     np.random.seed(42)
     data = []
     
-    for _ in range(num_samples):
+    # Create an equal number of big and small outcomes
+    for _ in range(num_samples // 2):
         last_three_digits = np.random.randint(100, 1000)
         digit_sum = sum(int(digit) for digit in str(last_three_digits))
-        outcome = "big" if np.random.rand() > 0.5 else "small"
-        data.append([last_three_digits, digit_sum, outcome])
+        data.append([last_three_digits, digit_sum, "big"])
+        
+        last_three_digits = np.random.randint(100, 1000)
+        digit_sum = sum(int(digit) for digit in str(last_three_digits))
+        data.append([last_three_digits, digit_sum, "small"])
     
     return pd.DataFrame(data, columns=["last_three_digits", "digit_sum", "outcome"])
 
 # Prepare the dataset
-df = generate_data()
+df = generate_balanced_data()
 df['outcome'] = df['outcome'].map({"big": 1, "small": 0})
 
 X = df[['last_three_digits', 'digit_sum']]
 y = df['outcome']
 
-# Train the logistic regression model
+# Train the Random Forest classifier
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
-model = LogisticRegression()
+model = RandomForestClassifier(n_estimators=100, random_state=42)
 model.fit(X_scaled, y)
 
 def predict_outcome(last_three_digits):
@@ -47,15 +52,6 @@ last_three_digits = st.text_input("Last three digits:")
 if st.button("Predict"):
     if len(last_three_digits) == 3 and last_three_digits.isdigit():
         prediction = predict_outcome(int(last_three_digits))
-        actual_outcome = np.random.choice(["big", "small"])
-        
         st.write(f"Your prediction: **{prediction}**")
-        st.write(f"Actual outcome: **{actual_outcome}**")
-        
-        if prediction == actual_outcome:
-            st.success("Congratulations! You predicted correctly.")
-        else:
-            st.error("Sorry, better luck next time.")
     else:
         st.warning("Please enter exactly three digits.")
-        
