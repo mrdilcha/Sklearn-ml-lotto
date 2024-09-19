@@ -3,7 +3,7 @@ import random
 from collections import defaultdict
 import json
 import os
-import time
+from datetime import datetime, timedelta
 
 HISTORY_FILE = "dragon_tiger_history.json"
 MAX_HISTORY = 100
@@ -59,8 +59,8 @@ def main():
     if 'history' not in st.session_state:
         st.session_state.history = load_history()
 
-    if 'timer' not in st.session_state:
-        st.session_state.timer = 30
+    if 'next_round_time' not in st.session_state:
+        st.session_state.next_round_time = datetime.now() + timedelta(seconds=30)
 
     if 'last_prediction' not in st.session_state:
         st.session_state.last_prediction = None
@@ -71,13 +71,13 @@ def main():
         if st.button("Dragon (D)"):
             st.session_state.history.append('d')
             save_history(st.session_state.history)
-            st.session_state.timer = 30
+            st.session_state.next_round_time = datetime.now() + timedelta(seconds=30)
 
     with col2:
         if st.button("Tiger (T)"):
             st.session_state.history.append('t')
             save_history(st.session_state.history)
-            st.session_state.timer = 30
+            st.session_state.next_round_time = datetime.now() + timedelta(seconds=30)
 
     st.write("Recent History:")
     st.write(" ".join(['🐉' if outcome == 'd' else '🐅' for outcome in st.session_state.history[-10:]]))
@@ -89,12 +89,11 @@ def main():
         st.subheader(f"Prediction for next round: {prediction}")
         st.write(f"Confidence: {confidence * 100:.2f}%")
 
-    st.write(f"Time until next round: {st.session_state.timer} seconds")
-
-    if st.session_state.timer > 0:
-        time.sleep(1)
-        st.session_state.timer -= 1
-        st.experimental_rerun()
+    time_left = (st.session_state.next_round_time - datetime.now()).total_seconds()
+    if time_left > 0:
+        st.write(f"Time until next round: {int(time_left)} seconds")
+    else:
+        st.write("Time's up! Please enter the result for the new round.")
 
 if __name__ == "__main__":
     main()
