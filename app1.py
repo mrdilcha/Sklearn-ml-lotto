@@ -66,6 +66,7 @@ def advanced_predict(outcomes, rf_model, one_hot_encoder):
 def main():
     st.title("Advanced Dragon Tiger Prediction")
 
+    # Initialize session state variables
     if 'outcomes' not in st.session_state:
         st.session_state.outcomes = deque(maxlen=1000)
     
@@ -77,6 +78,7 @@ def main():
 
     st.subheader("Input Multiple Outcomes")
     input_text = st.text_input("Enter outcomes (D for Dragon, T for Tiger, separated by spaces):")
+    
     if st.button("Add Multiple Outcomes"):
         new_outcomes = input_text.upper().split()
         for outcome in new_outcomes:
@@ -88,43 +90,58 @@ def main():
 
     st.subheader("Quick Input for Last Few Outcomes")
     col1, col2, col3, col4, col5 = st.columns(5)
+    
     with col1:
         if st.button("D🐉"):
             st.session_state.outcomes.append("Dragon")
+            
     with col2:
         if st.button("T🐅"):
             st.session_state.outcomes.append("Tiger")
+            
     with col3:
         if st.button("DD🐉🐉"):
             st.session_state.outcomes.extend(["Dragon", "Dragon"])
+            
     with col4:
         if st.button("TT🐅🐅"):
             st.session_state.outcomes.extend(["Tiger", "Tiger"])
+            
     with col5:
         if st.button("DT🐉🐅"):
             st.session_state.outcomes.extend(["Dragon", "Tiger"])
 
+    # Display current outcomes
     st.subheader("Current Outcomes")
-    st.write(f"Total outcomes recorded: {len(st.session_state.outcomes)}")
-    st.write("Last 10 outcomes:")
-    for outcome in list(st.session_state.outcomes)[-10:]:
-        st.write(f"{'🐉' if outcome == 'Dragon' else '🐅'}")
+    total_outcomes = len(st.session_state.outcomes)
+    
+    st.write(f"Total outcomes recorded: {total_outcomes}")
+    
+    # Display last 10 outcomes horizontally
+    last_ten_outcomes = list(st.session_state.outcomes)[-10:]
+    outcome_icons = ['🐉' if outcome == 'Dragon' else '🐅' for outcome in last_ten_outcomes]
+    
+    st.write("Last 10 outcomes: " + ', '.join(outcome_icons))
 
-    if len(st.session_state.outcomes) >= 10:
+    # Prediction logic
+    if total_outcomes >= 10:
         if st.button("Predict Next Outcome"):
             dragon_prob, tiger_prob = advanced_predict(
-                st.session_state.outcomes, 
-                st.session_state.rf_model, 
+                st.session_state.outcomes,
+                st.session_state.rf_model,
                 st.session_state.one_hot_encoder
             )
             prediction = "Dragon 🐉" if dragon_prob > tiger_prob else "Tiger 🐅"
             st.success(f"Predicted next outcome: {prediction}")
             st.write(f"Probabilities: Dragon {dragon_prob:.2f}, Tiger {tiger_prob:.2f}")
+            
     else:
-        st.warning(f"Need at least 10 outcomes for advanced prediction. Current count: {len(st.session_state.outcomes)}")
+        st.warning(f"Need at least 10 outcomes for advanced prediction. Current count: {total_outcomes}")
 
+    # Reset functionality
     if st.button("Reset All Outcomes"):
-        st.session_state.outcomes.clear()
+        # Resetting the outcomes deque instead of clearing it
+        st.session_state.outcomes = deque(maxlen=1000)  
         st.experimental_rerun()
 
 if __name__ == "__main__":
