@@ -5,7 +5,63 @@ from collections import deque
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import OneHotEncoder
 
-# ... (keep the helper functions: calculate_probabilities, detect_streaks, prepare_historical_data, advanced_predict)
+def calculate_probabilities(outcomes, window_size=None):
+    if window_size:
+        outcomes = outcomes[-window_size:]
+    dragon_count = outcomes.count('Dragon')
+    tiger_count = outcomes.count('Tiger')
+    total = len(outcomes)
+    
+    dragon_prob = dragon_count / total if total > 0 else 0.5
+    tiger_prob = tiger_count / total if total > 0 else 0.5
+    
+    return [dragon_prob, tiger_prob]
+
+def detect_streaks(outcomes, streak_threshold=3):
+    current_streak = 1
+    last_outcome = outcomes[-1] if outcomes else None
+    
+    for outcome in reversed(outcomes[:-1]):
+        if outcome == last_outcome:
+            current_streak += 1
+        else:
+            break
+    
+    return current_streak >= streak_threshold, last_outcome
+
+def prepare_historical_data(outcomes, one_hot_encoder):
+    X, y = [], []
+    for i in range(5, len(outcomes)):
+        recent_trend = calculate_probabilities(outcomes[i-10:i])
+        long_term_trend = calculate_probabilities(outcomes[:i])
+        streak, last_outcome = detect_streaks(outcomes[:i])
+        streak_feature = [1 if streak else 0, 1 if last_outcome == 'Dragon' else 0]
+        pattern = one_hot_encoder.fit_transform([[o] for o in outcomes[i-5:i]])
+        
+        features = np.concatenate([recent_trend, long_term_trend, streak_feature, pattern.flatten()])
+        X.append(features)
+        y.append(1 if outcomes[i] == 'Dragon' else 0)
+    
+    return np.array(X), np.array(y)
+
+def advanced_predict(outcomes, rf_model, one_hot_encoder):
+    outcomes_list = list(outcomes)
+    
+    recent_trend = calculate_probabilities(outcomes_list, window_size=10)
+    long_term_trend = calculate_probabilities(outcomes_list)
+    streak, last_outcome = detect_streaks(outcomes_list)
+    streak_feature = [1 if streak else 0, 1 if last_outcome == 'Dragon' else 0]
+    pattern = one_hot_encoder.fit_transform([[o] for o in outcomes_list[-5:]])
+    
+    features = np.concatenate([recent_trend, long_term_trend, streak_feature, pattern.flatten()])
+    
+    X, y = prepare_historical_data(outcomes_list, one_hot_encoder)
+    
+    rf_model.fit(X, y)
+    
+    prediction = rf_model.predict_proba([features])[0]
+    
+    return prediction[1], prediction[0]  # Dragon probability, Tiger probability
 
 def main():
     st.title("Advanced Dragon Tiger Prediction")
@@ -17,9 +73,8 @@ def main():
         st.session_state.rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
     
     if 'one_hot_encoder' not in st.session_state:
-        st.session_state.one_hot_encoder = OneHotEncoder(sparse=False)
+        st.session_state.one_hot_encoder = OneHotEncoder(sparse_output=False)
 
-    # New feature: Input multiple outcomes at once
     st.subheader("Input Multiple Outcomes")
     input_text = st.text_input("Enter outcomes (D for Dragon, T for Tiger, separated by spaces):")
     if st.button("Add Multiple Outcomes"):
@@ -31,7 +86,6 @@ def main():
                 st.session_state.outcomes.append("Tiger")
         st.success(f"Added {len(new_outcomes)} outcomes")
 
-    # New feature: Quick input for last few outcomes
     st.subheader("Quick Input for Last Few Outcomes")
     col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
